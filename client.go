@@ -3,6 +3,7 @@ package lunchmoney
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,13 @@ type Client struct {
 	accessToken string
 	baseURL     string
 	http        *http.Client
+}
+
+// Error ...
+type Error struct {
+	Name    string `json:"name"`
+	Message string `json:"message"`
+	Err     string `json:"error"`
 }
 
 // NewClient ...
@@ -66,5 +74,19 @@ func (client *Client) do(req *http.Request, v interface{}) error {
 		return json.NewDecoder(res.Body).Decode(v)
 	}
 
-	return nil
+	lmError := Error{}
+
+	err = json.NewDecoder(res.Body).Decode(&lmError)
+	if err != nil {
+		return err
+	}
+
+	if lmError.Err != "" {
+		return errors.New(lmError.Err)
+	}
+
+	// Get in touch with the maintainer, when end date is before start date it still returns 200: StatusOK
+
+	errorMessage := fmt.Sprintf("%s: %s", lmError.Name, lmError.Message)
+	return errors.New(errorMessage)
 }

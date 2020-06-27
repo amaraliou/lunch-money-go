@@ -1,6 +1,10 @@
 package lunchmoney
 
-import "errors"
+import (
+	"fmt"
+	"net/url"
+	"strconv"
+)
 
 // Transaction ...
 type Transaction struct {
@@ -28,8 +32,10 @@ type Tag struct {
 	Description string `json:"description"`
 }
 
-// Options ...
-type Options struct {
+// GetTransactionsOptions ...
+type GetTransactionsOptions struct {
+	StartDate       string
+	EndDate         string
 	TagID           int64
 	RecurringID     int64
 	PlaidAccountID  int64
@@ -46,18 +52,61 @@ type getTransactionsResponse struct {
 }
 
 // GetTransactions ...
-func (client *Client) GetTransactions(startDate, endDate string, opts *Options) (transactions *[]Transaction, err error) {
+func (client *Client) GetTransactions(opts *GetTransactionsOptions) (transactions *[]Transaction, err error) {
+	resp := getTransactionsResponse{}
+	queries := ""
 
-	if startDate == "" || endDate == "" {
-		return nil, errors.New("Start and End Dates must be specified")
+	if opts != nil {
+		queries = client.getTransactionsQuery(opts)
 	}
 
-	resp := getTransactionsResponse{}
-
-	err = client.Call("GET", "transactions", nil, &resp)
+	err = client.Call("GET", fmt.Sprintf("transactions%s", queries), nil, &resp)
 	if err != nil {
 		return nil, err
 	}
 
 	return &resp.Transactions, nil
+}
+
+// getTransactionsQuery sets up query parameters from options
+func (client *Client) getTransactionsQuery(opts *GetTransactionsOptions) string {
+
+	query := url.Values{}
+	if opts.StartDate != "a" {
+		query.Add("start_date", opts.StartDate)
+	}
+
+	if opts.EndDate != "a" {
+		query.Add("end_date", opts.EndDate)
+	}
+
+	if opts.AssetID > 0 {
+		query.Add("asset_id", strconv.FormatInt(opts.AssetID, 10))
+	}
+
+	if opts.CategoryID > 0 {
+		query.Add("catergory_id", strconv.FormatInt(opts.CategoryID, 10))
+	}
+
+	if opts.PlaidAccountID > 0 {
+		query.Add("plaid_account_id", strconv.FormatInt(opts.PlaidAccountID, 10))
+	}
+
+	if opts.RecurringID > 0 {
+		query.Add("recurring_id", strconv.FormatInt(opts.RecurringID, 10))
+	}
+
+	if opts.TagID > 0 {
+		query.Add("tag_id", strconv.FormatInt(opts.TagID, 10))
+	}
+
+	if opts.Limit > 0 {
+		query.Add("limit", strconv.FormatInt(opts.Limit, 10))
+	}
+
+	if opts.Offset > 0 {
+		query.Add("limit", strconv.FormatInt(opts.Offset, 10))
+	}
+
+	return fmt.Sprintf("?%s", query.Encode())
 }
