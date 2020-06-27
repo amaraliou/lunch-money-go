@@ -1,6 +1,7 @@
 package lunchmoney
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -52,7 +53,7 @@ type getTransactionsResponse struct {
 }
 
 // GetTransactions ...
-func (client *Client) GetTransactions(opts *GetTransactionsOptions) (transactions *[]Transaction, err error) {
+func (client *Client) GetTransactions(opts *GetTransactionsOptions) (*[]Transaction, error) {
 	resp := getTransactionsResponse{}
 	queries := ""
 
@@ -60,12 +61,25 @@ func (client *Client) GetTransactions(opts *GetTransactionsOptions) (transaction
 		queries = client.getTransactionsQuery(opts)
 	}
 
-	err = client.Call("GET", fmt.Sprintf("transactions%s", queries), nil, &resp)
+	err := client.Call("GET", fmt.Sprintf("transactions%s", queries), nil, &resp)
 	if err != nil {
 		return nil, err
 	}
 
 	return &resp.Transactions, nil
+}
+
+// GetTransactionByID ...
+func (client *Client) GetTransactionByID(transactionID int64) (*Transaction, error) {
+	resp := Transaction{}
+	endpoint := fmt.Sprintf("transactions/%d", transactionID)
+
+	err := client.Call("GET", endpoint, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
 }
 
 // getTransactionsQuery sets up query parameters from options
@@ -109,4 +123,34 @@ func (client *Client) getTransactionsQuery(opts *GetTransactionsOptions) string 
 	}
 
 	return fmt.Sprintf("?%s", query.Encode())
+}
+
+// InsertTransactionsOptions ...
+type InsertTransactionsOptions struct {
+}
+
+// InsertTransactionsResponse ...
+type InsertTransactionsResponse struct {
+	IDs []int64 `json:"ids"`
+}
+
+// InsertTransactions ...
+func (client *Client) InsertTransactions(transactions []Transaction, opts *InsertTransactionsOptions) (*[]int64, error) {
+
+	resp := InsertTransactionsResponse{}
+	toReq := getTransactionsResponse{
+		Transactions: transactions,
+	}
+
+	body, err := json.Marshal(toReq)
+	if err != nil {
+		return nil, err
+	}
+
+	err = client.Call("POST", "transactions", body, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp.IDs, nil
 }
