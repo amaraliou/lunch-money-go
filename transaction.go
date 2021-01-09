@@ -162,7 +162,58 @@ func (client *Client) InsertTransactions(transactions []Transaction, opts *Inser
 	}
 
 	// Workaround -> Currently, the API returns 200 even if there are some types of
-	// errors in the response.
+	// errors in the response. Contacted Jen.
+	if len(resp.Errors) > 0 {
+		return &resp, errors.New("Request errors, check response body")
+	}
+
+	return &resp, nil
+}
+
+// UpdateTransactionOptions ...
+type UpdateTransactionOptions struct {
+	DebitAsNegative bool
+}
+
+// UpdateTransactionRequest ...
+type UpdateTransactionRequest struct {
+	Transaction *Transaction `json:"transaction"`
+	Split       Split        `json:"split"`
+}
+
+// UpdateTransactionResponse ...
+type UpdateTransactionResponse struct {
+	Updated bool     `json:"updated"`
+	Errors  []string `json:"error"`
+}
+
+func updateTransactionQuery(opts *UpdateTransactionOptions) string {
+	// To Implement
+	return ""
+}
+
+// UpdateTransaction ...
+func (client *Client) UpdateTransaction(transaction *Transaction, opts *UpdateTransactionRequest) (*UpdateTransactionResponse, error) {
+
+	resp := UpdateTransactionResponse{}
+	toReq := UpdateTransactionRequest{
+		Transaction: transaction,
+	}
+
+	endpoint := fmt.Sprintf("transactions/%d", transaction.ID)
+
+	body, err := json.Marshal(toReq)
+	if err != nil {
+		return nil, err
+	}
+
+	err = client.Call("POST", endpoint, body, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	// Workaround -> Currently, the API returns 200 even if there are some types of
+	// errors in the response. Contacted Jen.
 	if len(resp.Errors) > 0 {
 		return &resp, errors.New("Request errors, check response body")
 	}
