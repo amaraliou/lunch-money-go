@@ -2,6 +2,7 @@ package lunchmoney
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -26,13 +27,6 @@ type Transaction struct {
 	ExternalID     string `json:"external_id"`
 }
 
-// Tag ...
-type Tag struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
-
 // GetTransactionsOptions ...
 type GetTransactionsOptions struct {
 	StartDate       string
@@ -48,42 +42,12 @@ type GetTransactionsOptions struct {
 }
 
 // GetTransactionsResponse ...
-type getTransactionsResponse struct {
+type GetTransactionsResponse struct {
 	Transactions []Transaction `json:"transactions"`
 }
 
-// GetTransactions ...
-func (client *Client) GetTransactions(opts *GetTransactionsOptions) (*[]Transaction, error) {
-	resp := getTransactionsResponse{}
-	queries := ""
-
-	if opts != nil {
-		queries = client.getTransactionsQuery(opts)
-	}
-
-	err := client.Call("GET", fmt.Sprintf("transactions%s", queries), nil, &resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return &resp.Transactions, nil
-}
-
-// GetTransactionByID ...
-func (client *Client) GetTransactionByID(transactionID int64) (*Transaction, error) {
-	resp := Transaction{}
-	endpoint := fmt.Sprintf("transactions/%d", transactionID)
-
-	err := client.Call("GET", endpoint, nil, &resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return &resp, nil
-}
-
 // getTransactionsQuery sets up query parameters from options
-func (client *Client) getTransactionsQuery(opts *GetTransactionsOptions) string {
+func getTransactionsQuery(opts *GetTransactionsOptions) string {
 
 	query := url.Values{}
 	if opts.StartDate != "a" {
@@ -125,20 +89,65 @@ func (client *Client) getTransactionsQuery(opts *GetTransactionsOptions) string 
 	return fmt.Sprintf("?%s", query.Encode())
 }
 
+// GetTransactions ...
+func (client *Client) GetTransactions(opts *GetTransactionsOptions) (*GetTransactionsResponse, error) {
+
+	resp := GetTransactionsResponse{}
+	queries := ""
+
+	if opts != nil {
+		queries = getTransactionsQuery(opts)
+	}
+
+	err := client.Call("GET", fmt.Sprintf("transactions%s", queries), nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
+// GetTransactionByID ...
+func (client *Client) GetTransactionByID(transactionID int64) (*Transaction, error) {
+	resp := Transaction{}
+	endpoint := fmt.Sprintf("transactions/%d", transactionID)
+
+	err := client.Call("GET", endpoint, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
 // InsertTransactionsOptions ...
 type InsertTransactionsOptions struct {
+	ApplyRules      bool
+	CheckRecurring  bool
+	DebitAsNegative bool
+}
+
+// InsertTransactionsRequest ...
+type InsertTransactionsRequest struct {
+	Transactions []Transaction `json:"transactions"`
 }
 
 // InsertTransactionsResponse ...
 type InsertTransactionsResponse struct {
-	IDs []int64 `json:"ids"`
+	IDs    []int64  `json:"ids"`
+	Errors []string `json:"error"`
+}
+
+func insertTransactionsQuery(opts *InsertTransactionsOptions) string {
+	// To Implement
+	return ""
 }
 
 // InsertTransactions ...
-func (client *Client) InsertTransactions(transactions []Transaction, opts *InsertTransactionsOptions) (*[]int64, error) {
+func (client *Client) InsertTransactions(transactions []Transaction, opts *InsertTransactionsOptions) (*InsertTransactionsResponse, error) {
 
 	resp := InsertTransactionsResponse{}
-	toReq := getTransactionsResponse{
+	toReq := InsertTransactionsRequest{
 		Transactions: transactions,
 	}
 
@@ -152,5 +161,11 @@ func (client *Client) InsertTransactions(transactions []Transaction, opts *Inser
 		return nil, err
 	}
 
-	return &resp.IDs, nil
+	// Workaround -> Currently, the API returns 200 even if there are some types of
+	// errors in the response.
+	if len(resp.Errors) > 0 {
+		return &resp, errors.New("Request errors, check response body")
+	}
+
+	return &resp, nil
 }
